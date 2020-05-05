@@ -1,0 +1,173 @@
+rm(list=ls())
+#=====================================================
+# SOCIAL NETWORK FOR INDEX DESIGN:                                                                 
+#                                                                                                                       
+# IMPORTANT - DISCLAIMER AND RIGHTS STATEMENT                                                 
+# This is a set of scripts written by the Financial Instruments Team at the                        
+# International Research Institute for Climate and Society in the                                     
+# Earth Institute at Columbia University.  They are shared for educational                        
+# purposes only.  Anyone who uses this code or its the functionality or                           
+# structure, assumes full liability and should inform and credit IRI.                                
+#                                                                                                                       
+# This script allows you to run SNIID and contains all the variables you need                   
+# to change                                                                                                        
+#=====================================================
+
+#
+#------------------------------------------------------------------------------#
+# 1. PATH NAMES                                                                              
+#    Enter the path name of the SNIID folder.                                         
+#    Inside this should be sub-folders called SNIID_Code and SNIID_Runs   
+#------------------------------------------------------------------------------#
+mainpath <- "~/irifist"
+
+#--- Don't touch the line below ---#
+advanced_wiiet  <- paste(mainpath,"SNIID_Code",sep="/"); lpth <- advanced_wiiet
+
+#------------------------------------------------------------------------------#
+# 2. RUNSET NAME                                                                           
+#------------------------------------------------------------------------------#
+ runname <- "Ethiopia2020IndexesPixelWoreda"
+
+ #------------------------------------------------------------------------------#
+ # 3. GENERAL PARAMETERS                                                                
+ # A full explanation of each one is given at the end of the script
+ #------------------------------------------------------------------------------#
+  
+# general settings--what sites, years, generation of code
+   ethiopia <- TRUE #-- Do you want to use the Ethiopian calendar --#
+   onlythis <- FALSE #-- Do you want to run using 1 specific line of the sitetable? --#
+   SiteIgnore <- FALSE #-- Do you want to ignore any sites? --#
+   bounds <- c(1983,2019) #-- These are the years to be used in comparisons --#
+   
+# Rain index design parameters
+   runbuilder <- TRUE #-- Do you want to create new indices --#
+   freqtarget <- 0.23 #-- What percentage of payouts in each window? --#
+   lowertrigmult <- 0.8 #-- multiply this by the lower trigger to prevent the trigger and exit from being the same e.g. 0.8 for very dry. --#
+   trigmin <- 5 #-- Optional. Set a minimum trigger.  Set to NULL to ignore  --#
+   exmin <- 5 # Optional. Set a minimum exit.  Set to NULL to ignore  --#
+   #defaultcap <- 25 #-- This is what will be used to cap decadal rainfall unless reset in the software                                         	defaultcap <- Inf #-- This is what will be used to cap decadal rainfall unless reset in the software                                         		 
+ # Which datsets to use for rainfall index    
+    # set this to the prefix (XXX) of the xxxprecip.daily.csv dataset to be used in index
+    # This will copy that to precip.daily.csv and the precip.data folder to be used in index design/calc
+   index.daily.prefix<-"ARC" #eg: ARC, ENACTSDK, TAMSATDK, gauge sometimes check scenarios/met.dir for examples
+   print("DANGER DANGER--MOVING AROUND PRECIP FILES--MAKE SURE YOUR INDEX WAS BUILT WITH RIGHT PRECIP FILE")
+   print("This is a run focusing on Ebo training materials, downloads may not be complete for other sites")
+   
+# Settings for comparisions    
+   wbadthresh <- 0.7 #-- Threshold of what counts as a bad year for the comparison --#
+   compthres <- 1/4 #-- Number of years to use in the comparison --#
+   particularlydryhack <- FALSE #-- Optional.  For extra dry runs .Set to NULL to ignore --#
+   benchdex <- 1 # This chooses which dataset the worst years comparison is against. If 1 it is first col, if 2 it is 2nd 
+            
+#STUFF FOR ADDING AN EXTRA MONTHLY DATA INDEX PHASE: UNCOMMENT TO RUN   
+	runextrabuilder<-TRUE # calculate veg window trigger/exits if true
+	calcextrapay<-TRUE # calculate veg window payouts if true 
+	freqtargetextra<-1/5 # frequency target for extra monthly window
+	lowertrigmultextra<-0.9 # same as for rainfall contracts
+  srcname<-"lateEVI"  # filename prefix for data to use for index (leave off .csv)
+ #------------------------------------------------------------------------------#
+ # 4. DATA DOWNLOAD and USE PARAMETERS
+ #------------------------------------------------------------------------------#
+ 
+ #Rainfall data
+   # Disabled but should reactivate when we have time, will need to be generalized across different datasets
+    #updaterainfall <- FALSE #-- Do you want to update the rainfall used in index design? ARC?--#
+   	#smooth <- NA #-- Do you want to smooth over adjacent pixels? --#  Hardcode deactivated in 1_SNIIDCodeOnly.r 0. Setup part
+   
+   nachoice <- "CLIMATE" #-- How do you want to fill missing data? (zeros need to be implimented, but variable is passed)#
+  
+   # set border around all pixels you will query, used by some downloaders to speed up downloads--could be done automatically
+  	areabox<-c(xl=38.0,xh=40.0,yl=12.0,yh=15.0)
+   
+# Rainfall like datasets here (daily or dekadal), dont forget last list cannot have comma, others require it
+AnotherData<-list(
+list(Name="CHIRPS25DAILY",Download= FALSE,Add=FALSE,DownloadFunction="DailyCHIRPS25.downloader",AddFunction="AddDayRaintoallshortpaysummary"),
+list(Name="CHIRPSDK",Download= FALSE,Add=FALSE,DownloadFunction="DekadalCHIRPS.downloader",AddFunction="AddDekRaintoallshortpaysummary"),
+list(Name="CHIRPDK",Download=FALSE,Add=TRUE,DownloadFunction="DekadalCHIRP.downloader",AddFunction="AddDekRaintoallshortpaysummary"),
+list(Name="TAMSAT3",Download=FALSE,Add=TRUE,DownloadFunction="TAMSAT3.downloader",AddFunction="AddDayRaintoallshortpaysummary"),
+list(Name="ENACTSDK",Download=FALSE,Add=TRUE,DownloadFunction="DekadalENACT.downloader",AddFunction="AddDekRaintoallshortpaysummary"),
+list(Name="TAMSATDK",Download= FALSE,Add=FALSE,DownloadFunction="DekadalTAMSAT.downloader",AddFunction="AddDekRaintoallshortpaysummary"),
+list(Name="ARC",Download= FALSE,Add=TRUE,DownloadFunction="ARC2.downloader",AddFunction="AddDayRaintoallshortpaysummary")
+) # end AnotherData
+# Example of how to reference: this.name<-AnotherData[[1]]$Name
+
+# "Veglike" data here, anything with one early and one late value per year
+# some cant be downloaded but need to be put in runset scenarios using external scripts
+# They are added using the Name as a prefix for files in the scenario.
+Veglike<-list(
+list(Name="EVI",Download= FALSE,Add=FALSE,DownloadFunction="veg.downloader",AddFunction="addveglike",urlpre="http://iridl.ldeo.columbia.edu/SOURCES/.USGS/.LandDAAC/.MODIS/.version_006/.EAF/.EVI"),
+list(Name="NDVI",Download= FALSE,Add=FALSE,DownloadFunction="veg.downloader",AddFunction="addveglike"),
+list(Name="AVHRRg",Download= FALSE,Add=FALSE,DownloadFunction="veg.downloader",AddFunction="addveglike",urlpre="http://iridl.ldeo.columbia.edu/SOURCES/.UMD/.GLCF/.GIMMS/.NDVIg/.global/.ndvi"),
+list(Name="MIXEDVEGg",Download= FALSE,Add= TRUE,DownloadFunction="veg.downloader",AddFunction="addveglike"),
+list(Name="EARS",Download= FALSE,Add= FALSE,DownloadFunction=NULL,AddFunction=""),
+# OLD VERSION-Ends 2017: list(Name="SWI-15",Download=FALSE,Add=TRUE,DownloadFunction="veg.downloader",AddFunction="addveglike",urlpre="http://iridl.ldeo.columbia.edu/home/.mbell/.Copernicus/.SWI/.V3/.daily/.SWI_015"),
+list(Name="SWI-15",Download=FALSE,Add=TRUE,DownloadFunction="veg.downloader",AddFunction="addveglike",urlpre="http://iridl.ldeo.columbia.edu/home/.mbell/.Copernicus/.SWI/.V3/.daily/.SWI_015"),list(Name="MIXEDVEGg",Download=FALSE,Add=FALSE,DownloadFunction="",AddFunction="addveglike"),
+list(Name="IDSHainET25",Download=FALSE,Add=FALSE,DownloadFunction="HainET.downloader",AddFunction="addveglike",urlpre="http://iridl.ldeo.columbia.edu/SOURCES/.NASA/.IDS/.EvapTrans/.et"),
+list(Name="IDSHainModisET",Download=FALSE,Add=FALSE,DownloadFunction="HainET.downloader",AddFunction="addveglike",urlpre="http://iridl.ldeo.columbia.edu/SOURCES/.NASA/.IDS/.EvapTrans/.modishainet",wierd="2"), # wierd is because ModisET has time in variable T2, not T
+list(Name="MIXEDET",Download= FALSE,Add= TRUE,DownloadFunction="HainET.downloader",AddFunction="addveglike")
+) # end Veglike
+
+  
+# Parameters for pixels included in a download for a location of veg products downloaded   
+   vi_pixel_size <- 5 #-- In kilometers, length of single veg index pixel side, or in long lat, length of single veg pixel side --# 
+   UnitVegPixel <- "KM"  #-- Either "KM" or "LongLat"
+   #2 methods for window timing, either month, or delay from middle of rainfall window
+   #setting defaultxxxmonth overrides dekdelay
+   dekdelay <- 4     #-- How many dekads delay from window? --#
+   #defaultearlymonth<- "Jun" # month for early window, overrides dekdelay
+   defaultlatemonth<- "Oct" # month for late window, overrides dekdelay
+
+
+   # VegCentreOnSite below only works if above set to KM (not Longlat) fix someday 
+   VegCentreOnSite <- TRUE #-- Do you want to use a veg pixel centred on the site (TRUE), or from a regular grid (FALSE)
+   CentreOfPixel <- c(37.2,12.4) #--- If you want to select from a regular grid, select the centre point in a pixel
+
+ #------------------------------------------------------------------------------#
+ # 5. LIBRARIES & PACKAGES                                                      
+ #------------------------------------------------------------------------------#
+  library(zoo) # Needed for the xxx function
+  #library(ncdf)	# Needed for the data download functions
+  library(sp) # Needed for cshapes
+  library(ncdf4)
+  library(date)
+  library(cshapes) # Only needed if plotloc == TRUE i.e. you want to plot the locations of your site table
+                   # You will also need these packages to make cshapes work:
+                   # maptools,foreign,grid,lattice,rgeos,plyr
+
+ #------------------------------------------------------------------------------#
+ # 6. Now run the code
+ #------------------------------------------------------------------------------#
+   source(paste(advanced_wiiet,"1_SNIIDCodeOnly.r",sep="/"))
+
+# 7. Variables and how to run to other scripts that are relevant to this runset
+
+#wgts<-c(0.8,0.8); pkg.it<-c(the.code=quote({pmin((wgts[1]*workmat[,"Early"]+wgts[2]*workmat[,"Late"]),100)}),the.name=paste(paste(wgts,collapse="-"),"WEarlyLate",sep="")) # early late weighted
+#wgts<-c(0.3,0.7); pkg.it<-c(the.code=quote({pmin((wgts[1]*workmat[,"Early"]+wgts[2]*pmax(workmat[,"Late"],workmat[,srcname])),100)}),the.name=paste(paste(wgts,collapse="-"),"WEarlyLateHyb",sep="")) # early late weighted
+#wgts<-c(0,1); pkg.it<-c(the.code=quote({pmin((wgts[1]*workmat[,"Early"]+wgts[2]*pmax(workmat[,"Late"],workmat[,srcname])),100)}),the.name=paste(paste(wgts,collapse="-"),"WEarlyLateHyb",sep="")) # Only Hybrid late
+#pkg.it<-c(the.code=quote({pmax(workmat[,"Early"],workmat[,"Late"],workmat[,srcname])}),the.name="MaxEarlyLateVeg") # max of any window, including veg example:
+wgts<-c(0.5,0.7); pkg.it<-c(the.code=quote({pmin((wgts[1]*workmat[,"Early"]+wgts[2]*pmax(workmat[,"Late"],workmat[,srcname])),100)}),the.name=paste(paste(wgts,collapse="-"),"WEarlyLateHyb",sep="")) # early late weighted
+#auto run packagecontract.R if uncommented...
+#source(paste(advanced_wiiet,"Other_Code","packagecontracts.R",sep="/"))
+
+# plot windows climate:
+source(paste(advanced_wiiet,"Functions","PlotWindowsClimate.R",sep="/"))
+
+# calculate how frequently caps hit:
+#source(paste(advanced_wiiet,"Other_Code","CapHits.R",sep="/"))
+
+#how to run mixed veg (create longer veg dataset pasting normalized avhrr for pre 2000 on EVI)
+#after you run this, you could expand time to time of AVHRR+evi, build contract on 2000-now, then calculate payouts for all using mixedvegg
+#out.data<-"MIXEDVEGg"; long.data<-"AVHRRg"; short.data<-"EVI" # From Data Library (goes to 2006)
+#source('~/irifist/SNIID_Code/Other_Code/Makemixedveg.R', chdir = TRUE)
+
+# repeating for ET
+#out.data<-"MIXEDET"; long.data<-"IDSHainET25"; short.data<-"IDSHainModisET" # 
+#source('~/irifist/SNIID_Code/Other_Code/Makemixedveg.R', chdir = TRUE) 
+
+
+#example tune the burn for each villageto average burn rate
+#save.burn<-TRUE # uncomment to actually overwrite the triggers with tuned ones
+#manual.target.ave<-14 # uncomment to target 15% burn rate instead of average
+#source('~/irifist/sniid_code/Other_Code/tunethebern.R', chdir = TRUE)
+   
