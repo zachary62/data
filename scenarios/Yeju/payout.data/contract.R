@@ -1,0 +1,1 @@
+t<-list( t0=c( 27 , 1 , 75 ), lowert=c( 5 , 0 , 42 ), swfirst=c( 16 ), swlast=c( 17 ), phases=matrix(c( 1 , 3 , 4 , 3 , 4 , 6 ),2), maxl=200,phasemax=c(100,0,100,100),cap=defaultcap,daycap=defaultdaycap,comment=1,sowreq=-0.0)
